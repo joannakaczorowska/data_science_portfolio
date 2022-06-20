@@ -5,9 +5,9 @@ In this repository, I will share projects written in R language, in which I anal
 
 # Data analyzed during PhD
 ## Project 1 - Early-life colonization by Beta- and Gammatorquevirus in infants
-**Add Link**
-**Language written**: R
-**Key packages used**: tidyverse, dplyr, rstatix
+Add Link here
+Language written: R
+Key packages used: tidyverse, dplyr, rstatix
 
 This is the R code for the _Early-life colonization by Beta- and Gammatorquevirus in infants_ paper, published in _Viruses_ in 2022.
 It is a simple study, which involved minor data manipulation, but a lot of data visualization.
