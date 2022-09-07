@@ -1,0 +1,168 @@
+---
+title: "Early-life colonization by Beta- and Gammatorquevirus in infants"
+author: "Joanna Kaczorowska"
+date: "6/20/2022"
+output: html_document
+---
+
+This is the R code for the _Early-life colonization by Beta- and Gammatorquevirus in infants_ paper, published in _Viruses_ in 2022.
+In this article, we took a closer look at the anellovirus prevalence in children between ages 0.3 and 64 months, and at the breast milk samples. We performed three qPCRs detecting various anellovirus genera: first qPCR detected alphatorquevirus, second - betatorquevirus, and third - beta- and gammatorquevirus.
+
+```{r packages, include = FALSE}
+library(tidyverse)
+library(dplyr)
+library(reshape2)
+library(ggpubr)
+library(svglite)
+library(survival)
+library(scales)
+library(epitools)
+library(ggsignif)
+library(broom)
+library(rstatix)
+library(grid)
+```
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(fig.align = 'center', fig.dim = c(18, 8), echo = TRUE)
+```
+
+## Inspecting the data table
+Here we inspect the `qPCR_results` table. This table contains all the qPCR results both from children blood samples and milk samples.
+
+### Elements of the data table
+* `Number` is the sequential number of the sample 
+* `Sample` corresponds with the unique ID of the sample
+* `type` is whether the sample is from the child (child blood) or from the mother (breast milk sample)
+* `value` corresponds to the result of the qPCR (in copies per mL sample)
+* `variable` is a type of qPCR used
+* `pos` explains whether the sample was positive or negative in the anellovirus qPCR assay
+* `Months` the age of the child at the moment of the sample collection
+* `HIV-status` informs whether the sample was taken from an HIV-1 positive or negative person
+
+```{r data, include = FALSE}
+setwd("C:/Users/jkacz/Documents/Datacamp/data_science_portfolio")
+read.csv("qPCR_results.csv") -> qPCR_results
+```
+
+```{r data_inspection, echo = FALSE}
+glimpse(qPCR_results)
+```
+
+## Setting up the theme for the graphs
+In this section I set up all the themes of the graphs.
+
+```{r theme}
+theme_scatter <- theme(legend.position = "none", legend.title = element_blank(), 
+                        legend.text = element_text(size = 16),
+                        axis.title.x = element_blank(), axis.title.y = element_text(size=20),
+                        axis.text.x = element_text(size = 15, angle = 90, vjust = 0.5), 
+                        axis.text.y = element_text(size= 18), 
+                        panel.background = element_rect(fill="white", colour = "grey50"), 
+                        panel.grid.major = element_line(colour = "grey50", linetype = "dashed"),
+                        strip.text.y = element_text(size = 20))
+```
+
+## Analysis of children's blood samples
+In the `children` section we analyze the children's blood samples. 
+
+### Scatterplot of children younger than 12 months
+First, we focus on the youngest children.
+
+```{r children_012, fig.cap = 'Figure 1.1: Anellovirus concentration in the first 12 months of life. All samples are arranged in the order of children’s age and the age of 6 months is depicted with a vertical line. The samples under the horizontal line were either negative for the viruses, or samples contained concentrations below the cutoff. Filled black dots represent alphatorqueviruses, white dots betatorqueviruses, and grey dots gamma- or betatorqueviruses.'}
+qPCR_results %>%
+# we filter out the HIV-1 positive children as well as the children older than 12 months.
+  filter(Number <= 107, Months < 12) %>% 
+  mutate(Sample = fct_reorder(Sample, Number)) %>%
+  ggplot(aes(x = Sample, y = value)) +
+  geom_point(size = 6, aes(shape = variable, fill = variable, colour = variable)) +
+  labs(x = "Samples", y = "DNA copies per mL serum") +
+  scale_y_log10(breaks= c(1000, 100000, 10000000, 1000000000, 100000000000),
+                labels=trans_format('log10', math_format(10^.x)), limits = c(100, 100000000000)) +
+  geom_hline(yintercept=1456, linetype='solid', lwd=0.5) +
+  scale_colour_manual(values = c("#000000", "#000000", "#FFFFFF"))+
+  scale_fill_manual(values=c( "#FFFFFF", "gray70", "#000000")) +
+  scale_shape_manual(values=c(21, 21, 21)) +
+  theme_scatter
+```
+
+### Scatterplot of children older than 12 months
+The next graph shows the qPCR results for children older than 12 months.
+
+```{r children_old12, fig.cap = 'Figure 1.2: Anellovirus concentration in children aged 12 months until 65 months. All samples are arranged in the order of children’s age and the age of 6 months is depicted with a vertical line. The samples under the horizontal line were either negative for the viruses, or samples contained concentrations below the cutoff. Filled black dots represent alphatorqueviruses, white dots betatorqueviruses, and grey dots gamma- or betatorqueviruses.'}
+
+qPCR_results %>%
+# we filter out the HIV-1 positive children as well as the children younger than 12 months.
+  filter(Number <= 107, Months > 12) %>% 
+  mutate(Sample = fct_reorder(Sample, Number)) %>%
+  ggplot(aes(x = Sample, y = value)) +
+  geom_point(size = 6, aes(shape = variable, fill = variable, colour = variable)) +
+  labs(x = "Samples", y = "DNA copies per mL serum") +
+  scale_y_log10(breaks= c(1000, 100000, 10000000, 1000000000, 100000000000),
+                labels=trans_format('log10', math_format(10^.x)), limits = c(100, 100000000000)) +
+  geom_hline(yintercept=1456, linetype='solid', lwd=0.5) +
+  scale_colour_manual(values = c("#000000", "#000000", "#FFFFFF"))+
+  scale_fill_manual(values=c( "#FFFFFF", "gray70", "#000000")) +
+  scale_shape_manual(values=c(21, 21, 21)) +
+  theme_scatter
+```
+
+## Analysis of the breast milk samples 
+In the `milk` section we analyze the breast milk samples.
+
+### Scatterplot of all breast milk samples
+
+```{r milk, fig.cap = 'Figure 2: Anellovirus concentration in breast milk. All samples are arranged in the order of children’s age at the moment of the breast milk collection. The samples under the horizontal line were either negative for the viruses, or samples contained concentrations below the cutoff. Filled black dots represent alphatorqueviruses, white dots betatorqueviruses, and grey dots gamma- or betatorqueviruses.'}
+qPCR_results %>%
+# we filter out the HIV-1 positive subjects, since they are not comparable with the HIV-1 negatives.
+# we also exclude the samples that do not have the collection date.
+  filter(Number > 114, Number <= 175) %>% 
+  mutate(Sample = fct_reorder(Sample, Number)) %>% 
+  ggplot(aes(x = Sample, y = value)) +
+  geom_point(size = 6, aes(shape = variable, fill = variable, colour = variable)) +
+  labs(x = "Samples", y = "DNA copies per mL breastmilk") +
+  scale_y_log10(breaks= c(1000, 10000, 100000, 1000000),
+                labels=trans_format('log10', math_format(10^.x)), limits = c(100, 1000000)) +
+  geom_hline(yintercept=1456, linetype='solid', lwd=0.5) +
+  scale_colour_manual(values = c("#000000", "#000000", "#FFFFFF"))+
+  scale_fill_manual(values=c( "#FFFFFF", "gray70", "#000000")) +
+  scale_shape_manual(values=c(21, 21, 21)) +
+  theme_scatter
+```
+
+## Calculation of percentage positive milk samples
+This is the code I used to calculate the percentage of positive milk samples. 
+
+```{r perc_pos_milk}
+# Percentage of the samples that are positive for TTV
+perc_TTV <- qPCR_results %>% 
+  filter(Number > 114, Number <= 175, variable == "TTV") %>%
+  count(pos) %>% 
+  pivot_longer(-pos) %>% 
+  pivot_wider(name, names_from = pos) %>% 
+  rename("negative" = "0", "positive" = "1") %>% 
+  mutate(perc_TTV = (positive / (positive + negative)) * 100) %>% 
+  select(perc_TTV)
+
+perc_TTMV <- qPCR_results %>% 
+  filter(Number > 114, Number <= 175, variable == "TTMV") %>%
+  count(pos) %>% 
+  pivot_longer(-pos) %>% 
+  pivot_wider(name, names_from = pos) %>% 
+  rename("negative" = "0", "positive" = "1") %>% 
+  mutate(perc_TTMV = (positive / (positive + negative)) * 100) %>% 
+  select(perc_TTMV)
+
+perc_TTMV_TTMDV <- qPCR_results %>% 
+  filter(Number > 114, Number <= 175, variable == "TTMV_TTMDV") %>%
+  count(pos) %>% 
+  pivot_longer(-pos) %>% 
+  pivot_wider(name, names_from = pos) %>% 
+  rename("negative" = "0", "positive" = "1") %>% 
+  mutate(perc_TTMV_TTMDV = (positive / (positive + negative)) * 100) %>% 
+  select(perc_TTMV_TTMDV)
+
+perc_pos_milk <- cbind(perc_TTV, perc_TTMV, perc_TTMV_TTMDV)
+
+```
